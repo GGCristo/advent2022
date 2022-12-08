@@ -1,18 +1,14 @@
-use regex::Regex;
 use std::fs;
 use std::str;
 
-type Stack = Vec<char>;
-
-#[derive(Debug)]
 struct Instruction {
     amount: usize,
     from: usize,
     to: usize,
 }
 
-fn get_data(input: &str) -> (Vec<Stack>, Vec<Instruction>) {
-    let (crates_str, commands) = input
+fn get_data(input: &str) -> (Vec<Vec<char>>, Vec<Instruction>) {
+    let (crates_str, commands_str) = input
         .split_once("\n\n")
         .expect("there is no separation between crates and commands");
     let mut crate_lines_rev = crates_str.lines().rev();
@@ -21,19 +17,16 @@ fn get_data(input: &str) -> (Vec<Stack>, Vec<Instruction>) {
         .expect("no line with cargo levels")
         .split_whitespace()
         .count();
-    let mut cargo = vec![Stack::new(); size];
-    let crate_regex = Regex::new(r"\s{4}|\S{3}").unwrap();
+    let mut cargo = vec![Vec::new(); size];
     for level in crate_lines_rev {
-        crate_regex
-            .captures_iter(level)
-            .map(|c| c.get(0).unwrap().as_str().trim())
+        level
+            .as_bytes()
+            .chunks(4)
             .enumerate()
-            .filter(|(_, c)| !c.is_empty())
-            .for_each(|(i, e)| {
-                cargo[i].push(e.chars().nth(1).unwrap());
-            });
+            .filter(|(_, bytes)| bytes[0] == b'[')
+            .for_each(|(stack, bytes)| cargo[stack].push(bytes[1] as char));
     }
-    let commands: Vec<Instruction> = commands
+    let commands: Vec<Instruction> = commands_str
         .lines()
         .map(|l| {
             let mut num_iter = l
@@ -52,23 +45,15 @@ fn get_data(input: &str) -> (Vec<Stack>, Vec<Instruction>) {
     (cargo, commands)
 }
 
-fn extend<T>(to: &mut Stack, iter: T, is_stack: bool)
-where
-    T: DoubleEndedIterator,
-    Vec<char>: Extend<<T as Iterator>::Item>,
-{
-    if is_stack {
-        to.extend(iter.rev());
-        return;
-    }
-    to.extend(iter);
-}
-
-fn run(mut cargo: Vec<Stack>, commands: &Vec<Instruction>, is_stack: bool) -> String {
+fn run(mut cargo: Vec<Vec<char>>, commands: &Vec<Instruction>, is_stack: bool) -> String {
     for command in commands {
-        let to_drain = (cargo[command.from].len() - command.amount)..;
-        let items_to_drain: Vec<_> = cargo[command.from].drain(to_drain).collect();
-        extend(&mut cargo[command.to], items_to_drain.into_iter(), is_stack);
+        let from_idx = cargo[command.from].len() - command.amount;
+        let mut items_to_drain: Vec<char> = if is_stack {
+            cargo[command.from].drain(from_idx..).rev().collect()
+        } else {
+            cargo[command.from].split_off(from_idx)
+        };
+        cargo[command.to].append(&mut items_to_drain);
     }
     cargo
         .into_iter()
@@ -82,6 +67,6 @@ fn main() {
     println!(
         "Part1: {} Part2: {}",
         run(cargo.clone(), &instructions, true),
-        run(cargo.clone(), &instructions, false)
+        run(cargo, &instructions, false)
     );
 }
