@@ -7,7 +7,7 @@ struct Instruction {
     to: usize,
 }
 
-fn get_data(input: &str) -> (Vec<Vec<char>>, Vec<Instruction>) {
+fn get_data(input: &str) -> (Vec<Vec<u8>>, Vec<Instruction>) {
     let (crates_str, commands_str) = input
         .split_once("\n\n")
         .expect("there is no separation between crates and commands");
@@ -24,7 +24,7 @@ fn get_data(input: &str) -> (Vec<Vec<char>>, Vec<Instruction>) {
             .chunks(4)
             .enumerate()
             .filter(|(_, bytes)| bytes[0] == b'[')
-            .for_each(|(stack, bytes)| cargo[stack].push(bytes[1] as char));
+            .for_each(|(stack, bytes)| cargo[stack].push(bytes[1]));
     }
     let commands: Vec<Instruction> = commands_str
         .lines()
@@ -45,28 +45,36 @@ fn get_data(input: &str) -> (Vec<Vec<char>>, Vec<Instruction>) {
     (cargo, commands)
 }
 
-fn run(mut cargo: Vec<Vec<char>>, commands: &Vec<Instruction>, is_stack: bool) -> String {
+fn run(mut cargo: Vec<Vec<u8>>, commands: &Vec<Instruction>, is_stack: bool) -> String {
     for command in commands {
         let from_idx = cargo[command.from].len() - command.amount;
-        let mut items_to_drain: Vec<char> = if is_stack {
-            cargo[command.from].drain(from_idx..).rev().collect()
+        let (from, to) = if command.to < command.from {
+            let (left, rigth) = cargo.split_at_mut(command.from);
+            (&mut rigth[0], &mut left[command.to])
         } else {
-            cargo[command.from].split_off(from_idx)
+            let (left, rigth) = cargo.split_at_mut(command.to);
+            (&mut left[command.from], &mut rigth[0])
         };
-        cargo[command.to].append(&mut items_to_drain);
+        if is_stack {
+            to.extend(from.drain(from_idx..).rev());
+        } else {
+            to.extend(from.drain(from_idx..));
+        }
     }
     cargo
         .into_iter()
         .filter_map(|v| v.last().copied())
+        .map(|b| b as char)
         .collect()
 }
 
 fn main() {
-    let input = fs::read_to_string("input.txt").expect("Couldn't find file");
+    // let input = fs::read_to_string("input.txt").expect("Couldn't find file");
+    let input = fs::read_to_string("aoc_2022_day05_large_input.txt").expect("Couldn't find file");
     let (cargo, instructions) = get_data(&input);
     println!(
         "Part1: {} Part2: {}",
         run(cargo.clone(), &instructions, true),
-        run(cargo, &instructions, false)
+        run(cargo, &instructions, false),
     );
 }
