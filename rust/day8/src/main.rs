@@ -1,20 +1,19 @@
-use std::cmp::Ordering;
-
 fn part_1(matrix: &Vec<Vec<u8>>) -> usize {
-    let mut visible = 0usize;
-    let column_len = matrix.len();
-    for r in 0..column_len {
+    let first_column_len = matrix.len();
+    if first_column_len == 0 {
+        return 0;
+    }
+    let mut visible = first_column_len + matrix[0].len() - 1; // first_column_len + first_row_len
+    for r in 1..first_column_len {
         let row_len = matrix[r].len();
-        for c in 0..row_len {
-            let value = matrix[r][c];
-            if (0..c).all(|c_i| matrix[r][c_i] < value)
-                || (c + 1..row_len).all(|c_i| matrix[r][c_i] < value)
-                || (0..r).all(|r_i| matrix[r_i][c] < value)
-                || (r + 1..column_len).all(|r_i| matrix[r_i][c] < value)
-                || r == 0
-                || c == 0
+        for c in 1..row_len {
+            let tree_height = matrix[r][c];
+            if (0..c).all(|c_i| matrix[r][c_i] < tree_height)
+                || (c + 1..row_len).all(|c_i| matrix[r][c_i] < tree_height)
+                || (0..r).all(|r_i| matrix[r_i][c] < tree_height)
+                || (r + 1..first_column_len).all(|r_i| matrix[r_i][c] < tree_height)
                 || r == row_len - 1
-                || c == column_len - 1
+                || c == first_column_len - 1
             {
                 visible += 1;
             }
@@ -23,17 +22,17 @@ fn part_1(matrix: &Vec<Vec<u8>>) -> usize {
     visible
 }
 
-fn get_view_count<I, F>(indixes: I, cmp1: F, cmp2: u8) -> usize
+fn get_view_count<I, F>(indixes: I, height_i: F, tree_height: u8) -> usize
 where
     I: Iterator<Item = usize>,
     F: Fn(usize) -> u8,
 {
     let mut count = 0usize;
     for i in indixes {
-        match cmp1(i).cmp(&cmp2) {
-            Ordering::Less => count += 1,
-            _ => return count + 1,
+        if height_i(i) >= tree_height {
+            return count + 1;
         }
+        count += 1;
     }
     count
 }
